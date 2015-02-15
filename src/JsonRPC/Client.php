@@ -197,7 +197,7 @@ class Client
         $payload = array(
             'jsonrpc' => '2.0',
             'method' => $procedure,
-            'id' => mt_rand()
+            'id' => microtime()     //mt_rand()
         );
 
         if (! empty($params)) {
