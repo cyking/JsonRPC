@@ -300,8 +300,19 @@ class Client
         curl_setopt($ch, CURLOPT_HTTPHEADER, $this->headers);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, $this->ssl_verify_peer);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+        
+        if ($this->ssl_verify_peer == false)
+        {
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+        }
+        else
+        {
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+        }
+        
 
         if ($this->username && $this->password) {
             curl_setopt($ch, CURLOPT_USERPWD, $this->username.':'.$this->password);
