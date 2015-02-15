@@ -327,6 +327,17 @@ class Server
                 $this->payload
             );
         }
+        catch (Exception $e){
+			
+			return $this->getResponse(array(
+                'error' => array(
+                    'code' => -32000,
+                    'message' => 'Server error',
+					'data' => $e->getMessage()
+                )),
+                $this->payload
+            );
+		}
     }
 
     /**
