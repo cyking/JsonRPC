@@ -267,10 +267,16 @@ class Client
     public function handleRpcErrors($error)
     {
         switch ($error['code']) {
+            case -32700:
+                throw new Exception('JSON Parse error');
+            case -32600:
+                throw new Exception('Invalid Request');
             case -32601:
-                throw new BadFunctionCallException('Procedure not found: '. $error['message']);
+                throw new BadFunctionCallException('Procedure not found: '. $error['message']. ', data: ' . $error['data']);
             case -32602:
-                throw new InvalidArgumentException('Invalid arguments: '. $error['message']);
+                throw new InvalidArgumentException('Invalid arguments: '. $error['message'] . ', data: ' . $error['data']);
+            case -32603:
+                throw new Exception('Internal error');
             default:
                 throw new RuntimeException('Invalid request/response: '. $error['message'], $error['code']);
         }
