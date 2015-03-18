@@ -197,7 +197,7 @@ class Client
         $payload = array(
             'jsonrpc' => '2.0',
             'method' => $procedure,
-            'id' => mt_rand()
+            'id' => str_replace(Array('0.', ' '), '', microtime())     //mt_rand()
         );
 
         if (! empty($params)) {
@@ -267,10 +267,16 @@ class Client
     public function handleRpcErrors($error)
     {
         switch ($error['code']) {
+            case -32700:
+                throw new Exception('JSON Parse error');
+            case -32600:
+                throw new Exception('Invalid Request');
             case -32601:
-                throw new BadFunctionCallException('Procedure not found: '. $error['message']);
+                throw new BadFunctionCallException('Procedure not found: '. $error['message']. ', data: ' . $error['data']);
             case -32602:
-                throw new InvalidArgumentException('Invalid arguments: '. $error['message']);
+                throw new InvalidArgumentException('Invalid arguments: '. $error['message'] . ', data: ' . $error['data']);
+            case -32603:
+                throw new Exception('Internal error');
             default:
                 throw new RuntimeException('Invalid request/response: '. $error['message'], $error['code']);
         }
@@ -294,8 +300,19 @@ class Client
         curl_setopt($ch, CURLOPT_HTTPHEADER, $this->headers);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, $this->ssl_verify_peer);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+        
+        if ($this->ssl_verify_peer == false)
+        {
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+        }
+        else
+        {
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+        }
+        
 
         if ($this->username && $this->password) {
             curl_setopt($ch, CURLOPT_USERPWD, $this->username.':'.$this->password);

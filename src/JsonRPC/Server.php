@@ -288,7 +288,8 @@ class Server
             return $this->getResponse(array(
                 'error' => array(
                     'code' => -32700,
-                    'message' => 'Parse error'
+                    'message' => 'Parse error',
+                    'data' => $e->getMessage()
                 )),
                 array('id' => null)
             );
@@ -298,7 +299,8 @@ class Server
             return $this->getResponse(array(
                 'error' => array(
                     'code' => -32600,
-                    'message' => 'Invalid Request'
+                    'message' => 'Invalid Request',
+                    'data' => $e->getMessage()
                 )),
                 array('id' => null)
             );
@@ -308,7 +310,8 @@ class Server
             return $this->getResponse(array(
                 'error' => array(
                     'code' => -32601,
-                    'message' => 'Method not found'
+                    'message' => 'Method not found',
+                    'data' => $e->getMessage()
                 )),
                 $this->payload
             );
@@ -318,11 +321,23 @@ class Server
             return $this->getResponse(array(
                 'error' => array(
                     'code' => -32602,
-                    'message' => 'Invalid params'
+                    'message' => 'Invalid params',
+                    'data' => $e->getMessage()
                 )),
                 $this->payload
             );
         }
+        catch (Exception $e){
+			
+			return $this->getResponse(array(
+                'error' => array(
+                    'code' => -32000,
+                    'message' => 'Server error',
+					'data' => $e->getMessage()
+                )),
+                $this->payload
+            );
+		}
     }
 
     /**
