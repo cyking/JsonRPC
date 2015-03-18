@@ -1,6 +1,172 @@
 JsonRPC PHP Client and Server
 =============================
 
+**FORKED by cyking until commits are merged into source repo.**
+
+Additions
+---------
+- option to use urlfetch in `Client.php` instead of curl.
+- option to auto-detect application output for an ['error'] array 
+- new exception class for custom application errors.
+
+
+Example Client Using urlfetch:
+------------------------------
+
+```php
+<?php
+
+use JsonRPC\Client;
+
+$client = new Client('http://localhost/server.php');
+
+$client->use_curl = false;
+
+$result = $client->execute('addition', [3, 5]);
+
+var_dump($result);
+```
+
+Example using error detection:
+------------------------------
+
+**server.php**
+```php
+<?php
+  require 'JsonRPC/Server.php';
+
+
+  use JsonRPC\Server;
+
+  $server = new Server;
+
+  // detect output for ['error'] arrray element
+  $server->detect_output_error = true;
+
+  // Procedures registration
+  $server->register('randomToTen', function ($start, $end)
+  {
+      if(intval($end) > 10)
+      {
+        $return['error'] = array();
+        $return['error']['code'] = 10;
+        $return['error']['message'] = 'must below 10';
+        $return['error']['data'] = 'end=' . $end;
+
+        return $return;
+      }  // if
+
+      return mt_rand($start, $end);
+  });
+
+  // Return the response to the client
+  $result = $server->execute();
+?>
+```
+
+**client.php**
+```php
+<?php
+  require 'JsonRPC/Client.php';
+
+  use JsonRPC\Client;
+
+  $client = new Client('server.php');
+
+  // use urlfetch instead of curl.
+  $client->use_curl = false;
+
+  $result = '';
+
+  try
+  {
+    $result = $client->execute('randomToTen', [3, 15]);
+  }  // try
+  catch (JsonRPC\CustomApplicationError $e)
+  {
+    echo 'Caught a Custom Application Error: <br /> <br />' . $e . '<br />';
+    echo 'CustomAppError: '. htmlspecialchars(json_encode($e->getCustomAppError())) . '<br />';
+  }
+  catch(Exception $e)
+  {
+    echo 'Caught an Exception Error: <br /> <br />' . $e . '<br />';
+  }  // catch
+
+  echo $result;
+?>
+```
+
+
+Example throwing Exception for CustomApplicationError:
+------------------------------
+
+**server2.php**
+```php
+<?php
+  require 'JsonRPC/Server.php';
+
+
+  use JsonRPC\Server;
+
+  $server = new Server;
+
+  // Procedures registration
+  $server->register('randomToTen', function ($start, $end)
+  {
+      if(intval($end) > 10)
+      {
+        $return['error'] = array();
+        $return['error']['code'] = 10;
+        $return['error']['message'] = 'must below 10';
+        $return['error']['data'] = 'end=' . $end;
+
+        throw new CustomApplicationError('Custom application error', intVal($error['code']), $error);
+      }  // if
+
+      return mt_rand($start, $end);
+  });
+
+  // Return the response to the client
+  $result = $server->execute();
+?>
+```
+
+**client2.php**
+```php
+<?php
+  require 'JsonRPC/Client.php';
+
+  use JsonRPC\Client;
+
+  $client = new Client('server2.php');
+
+  // use urlfetch instead of curl.
+  $client->use_curl = false;
+
+  $result = '';
+
+  try
+  {
+    $result = $client->execute('randomToTen', [3, 15]);
+  }  // try
+  catch (JsonRPC\CustomApplicationError $e)
+  {
+    echo 'Caught a Custom Application Error: <br /> <br />' . $e . '<br />';
+    echo 'CustomAppError: '. htmlspecialchars(json_encode($e->getCustomAppError())) . '<br />';
+  }
+  catch(Exception $e)
+  {
+    echo 'Caught an Exception Error: <br /> <br />' . $e . '<br />';
+  }  // catch
+
+  echo $result;
+?>
+```
+
+
+--------
+
+
 A simple Json-RPC client/server that just works.
 
 Features
