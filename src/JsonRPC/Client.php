@@ -2,9 +2,47 @@
 
 namespace JsonRPC;
 
+use Exception;
 use RuntimeException;
 use BadFunctionCallException;
 use InvalidArgumentException;
+
+class InvalidJsonRpcFormat extends Exception {};
+class InvalidJsonFormat extends Exception {};
+
+/**
+ * JsonRPC CustomApplicationError class
+ *
+ * @package JsonRPC
+ * @author  cyking
+ * @license Unlicense http://unlicense.org/
+ */
+class CustomApplicationError extends Exception
+{
+    private $customAppError;
+
+    public function __construct($message, $code = 0, $customAppError = array(), Exception $previous = null)
+    {
+        $this->setCustomAppError($customAppError);
+        parent::__construct($message, $code, $previous);
+    }
+
+    public function __toString()
+    {
+        return __CLASS__ . ": [{$this->code}]: {$this->message}\n";
+    }
+
+    public function setCustomAppError(array $customAppError)
+    {
+        $this->customAppError = $customAppError;
+    }
+
+    public function getCustomAppError()
+    {
+        return $this->customAppError;
+    }
+};
+
 
 /**
  * JsonRPC client class
@@ -64,6 +102,14 @@ class Client
     public $batch = array();
 
     /**
+     * True fto use curl instead of file urlfetch.
+     *
+     * @access public
+     * @var array
+     */
+    public $use_curl = false;
+
+    /**
      * Enable debug output to the php error log
      *
      * @access public
@@ -82,12 +128,21 @@ class Client
         'Content-Type: application/json',
         'Accept: application/json'
     );
+
     /**
      * SSL certificates verification
      * @access public
      * @var boolean
      */
     public $ssl_verify_peer = true;
+
+
+    /**
+     * SSL verify peer name
+     * @access public
+     * @var boolean
+     */
+     public $ssl_verify_peer_name = true;
 
     /**
      * Constructor
@@ -269,17 +324,22 @@ class Client
         switch ($error['code']) {
             case -32700:
                 throw new Exception('JSON Parse error');
+                break;
             case -32600:
                 throw new Exception('Invalid Request');
+                break;
             case -32601:
                 throw new BadFunctionCallException('Procedure not found: '. $error['message']. ', data: ' . $error['data']);
+                break;
             case -32602:
                 throw new InvalidArgumentException('Invalid arguments: '. $error['message'] . ', data: ' . $error['data']);
+                break;
             case -32603:
                 throw new Exception('Internal error');
+                break;
             default:
-                throw new RuntimeException('Invalid request/response: '. $error['message'], $error['code']);
-        }
+                throw new CustomApplicationError('Custom application error', intVal($error['code']), $error);
+            }
     }
 
     /**
@@ -289,6 +349,22 @@ class Client
      * @param  string   $payload   Data to send
      */
     public function doRequest($payload)
+    {
+        if($this->use_curl == true) {
+            return $this->doRequestViaCurl($payload);
+        }
+        else {
+            return $this->doRequestViaUrlfetch($payload);
+        }
+    }
+
+    /**
+     * Do the HTTP request using curl
+     *
+     * @access public
+     * @param  string   $payload   Data to send
+     */
+    public function doRequestViaCurl($payload)
     {
         $ch = curl_init();
 
@@ -301,18 +377,16 @@ class Client
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        
-        if ($this->ssl_verify_peer == false)
-        {
+
+        if ($this->ssl_verify_peer == false) {
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
         }
-        else
-        {
+        else {
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
         }
-        
+
 
         if ($this->username && $this->password) {
             curl_setopt($ch, CURLOPT_USERPWD, $this->username.':'.$this->password);
@@ -333,6 +407,52 @@ class Client
         }
 
         curl_close($ch);
+
+        return is_array($response) ? $response : array();
+    }
+
+    /**
+     * Do the HTTP request using urlfetch
+     *
+     * @access public
+     * @param  string   $payload   Data to send
+     */
+    public function doRequestViaUrlfetch($payload)
+    {
+        if ($this->username && $this->password) {
+            $this->headers[] = "Authorization: Basic " . base64_encode($this->username.':'.$this->password);
+        }
+
+        $context['http'] =
+        [
+            'method' => 'POST',
+            'header' => $this->headers,
+            'content' => json_encode($payload)
+        ];
+
+        if($this->ssl_verify_peer === true) {
+            $context['ssl'] =
+            [
+               'verify_peer' => $this->ssl_verify_peer,
+               'verify_peer_name' => $this->ssl_verify_peer_name
+            ];
+        }
+
+        // to do: $this->timeout
+
+        $context = stream_context_create($context);
+        $http_body = file_get_contents($this->url, false, $context);
+
+        if ($http_body === false) {
+            throw new RuntimeException('Access denied');
+        }
+
+        $response = json_decode($http_body, true);
+
+        if ($this->debug) {
+            error_log('==> Request: '.PHP_EOL.json_encode($payload, JSON_PRETTY_PRINT));
+            error_log('==> Response: '.PHP_EOL.json_encode($response, JSON_PRETTY_PRINT));
+        }
 
         return is_array($response) ? $response : array();
     }

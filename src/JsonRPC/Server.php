@@ -13,6 +13,41 @@ use ReflectionMethod;
 class InvalidJsonRpcFormat extends Exception {};
 class InvalidJsonFormat extends Exception {};
 
+
+/**
+ * JsonRPC CustomApplicationError class
+ *
+ * @package JsonRPC
+ * @author  cyking
+ * @license Unlicense http://unlicense.org/
+ */
+class CustomApplicationError extends Exception
+{
+    private $customAppError;
+
+    public function __construct($message, $code = 0, $customAppError = array(), Exception $previous = null)
+    {
+        $this->setCustomAppError($customAppError);
+        parent::__construct($message, $code, $previous);
+    }
+
+    public function __toString()
+    {
+        return __CLASS__ . ": [{$this->code}]: {$this->message}\n";
+    }
+
+    public function setCustomAppError(array $customAppError)
+    {
+        $this->customAppError = $customAppError;
+    }
+
+    public function getCustomAppError()
+    {
+        return $this->customAppError;
+    }
+};
+
+
 /**
  * JsonRPC server class
  *
@@ -56,6 +91,14 @@ class Server
      * @var array
      */
     private $instances = array();
+
+    /**
+     * autodetect output for "error" element array
+     *
+     * @access public
+     * @var boolean
+     */
+    public $detect_output_error = false;
 
     /**
      * Constructor
@@ -258,6 +301,41 @@ class Server
         return empty($responses) ? '' : '['.implode(',', $responses).']';
     }
 
+
+    /**
+     * Make sure error follows http://www.jsonrpc.org/specification - section 5.1
+     *
+     * @access public
+     * @param  array    $error       error array to validate.
+     * @return array
+     */
+    public function validateError($error)
+    {
+        $validError =  array();
+
+        if (isset($error['code']) === true)
+        {
+            $validError['code'] = intval($error['code']);
+        }
+        else {
+            $validError['code']  = -32500;                          // error code must exist - default to application error.
+        }
+
+        if (isset($error['message']) === true) {
+            $validError['message'] = $error['message'];
+        }
+        else {
+            $validError['message'] = 'application error detected';  // must have an error message.
+        }
+
+        if (isset($error['data']) === true) {
+            $validError['data'] = $error['data'];    // data is optional.
+        }
+
+        return $validError;
+    }
+
+
     /**
      * Parse incoming requests
      *
@@ -281,7 +359,25 @@ class Server
                 empty($this->payload['params']) ? array() : $this->payload['params']
             );
 
+            if ($this->detect_output_error === true && isset($result['error']) === true) {
+                $detected_error = $this->validateError($result['error']);
+
+                return $this->getResponse(array(
+                    'error' => $detected_error),
+                    array('id' => null)
+                );
+            }
+
             return $this->getResponse(array('result' => $result), $this->payload);
+        }
+        catch (JsonRPC\CustomApplicationError $e) {
+            $error = validateError($e->getCustomAppError['error']);
+
+            return $this->getResponse(array(
+                'error' => $error),
+                array('id' => null)
+            );
+
         }
         catch (InvalidJsonFormat $e) {
 
@@ -328,7 +424,6 @@ class Server
             );
         }
         catch (Exception $e){
-			
 			return $this->getResponse(array(
                 'error' => array(
                     'code' => -32000,
