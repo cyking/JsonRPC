@@ -8,6 +8,7 @@ Additions
 - option to use urlfetch in `Client.php` instead of curl.
 - option to auto-detect application output for an ['error'] array 
 - new exception class for custom application errors.
+- Alternative server binding for 1 to 1 procedure to class method.
 
 
 Example Client Using urlfetch:
@@ -162,6 +163,22 @@ Example throwing Exception for CustomApplicationError:
   echo $result;
 ?>
 ```
+
+
+Alternative server binding (1 to 1 procedure to class method.
+------------------------------------------------------------
+
+old way:
+```php
+$server->bind('addition', 'MyMathClass', 'addition');
+```
+
+alternative way:
+```php
+$server->bind('addition', 'MyMathClass');
+```
+
+
 
 
 --------
