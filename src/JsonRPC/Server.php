@@ -174,10 +174,14 @@ class Server
      * @access public
      * @param  string   $procedure    Procedure name
      * @param  mixed    $class        Class name or instance
-     * @param  string   $method       Procedure name
+     * @param  string   $method       Procedure - if null will populate with $procedure
      */
-    public function bind($procedure, $class, $method)
+    public function bind($procedure, $class, $method=null)
     {
+        if ($method === null) {
+            $method = $procedure;
+        }
+
         $this->classes[$procedure] = array($class, $method);
     }
 
